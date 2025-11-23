@@ -5,8 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node register-commands.js && node index.js",
-    "register": "node register-commands.js"
+    "start": "node register-commands.js && node index.js"
   },
   "dependencies": {
     "@discordjs/voice": "^0.18.0",
@@ -17,6 +16,5 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "license": "MIT"
+  }
 }
