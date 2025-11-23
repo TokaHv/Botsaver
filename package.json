@@ -1,0 +1,23 @@
+{
+  "name": "render-music-bot",
+  "version": "1.0.0",
+  "description": "24/7 Discord Music Bot for Render using yt-dlp and discord.js v14",
+  "main": "index.js",
+  "type": "module",
+
+  "scripts": {
+    "start": "node index.js",
+    "register": "node register-commands.js"
+  },
+
+  "dependencies": {
+    "@discordjs/voice": "^0.17.0",
+    "discord.js": "^14.15.3",
+    "express": "^4.21.1",
+    "yt-dlp-exec": "^2.6.0"
+  },
+
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
