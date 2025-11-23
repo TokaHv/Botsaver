@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
+    "start": "node register-commands.js && node index.js",
     "register": "node register-commands.js"
   },
   "dependencies": {
@@ -17,5 +17,6 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "license": "MIT"
 }
