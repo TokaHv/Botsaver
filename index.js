@@ -2,12 +2,13 @@
 //  Discord 24/7 Music Bot
 // ===========================
 
+// Load environment variables first
+import 'dotenv/config'; // ESM style; ensures process.env.TOKEN, VC_ID, etc. are available
+
 import { Client, GatewayIntentBits, Collection } from "discord.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { config as dotenvConfig } from "dotenv";
-dotenvConfig(); // Load TOKEN, VC_ID, LOFI_URL, etc
 
 // Start keepalive server for Render
 import "./keepalive/server.js";
@@ -33,35 +34,35 @@ const commandsPath = path.join(__dirname, "commands");
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith(".js"));
 
 for (const file of commandFiles) {
-  const command = await import(`./commands/${file}`);
-  client.commands.set(command.default.data.name, command.default);
+  const { default: command } = await import(`./commands/${file}`);
+  client.commands.set(command.data.name, command);
 }
 
-console.log(`Loaded ${client.commands.size} commands.`);
+console.log(`✅ Loaded ${client.commands.size} commands.`);
 
 // ============ BOT READY EVENT ============
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  // Auto-join VC 24/7
   const vcId = process.env.VC_ID;
-  if (!vcId) return console.error("❌ VC_ID not set in environment variables.");
-
   const guildId = process.env.GUILD_ID;
-  const guild = client.guilds.cache.get(guildId);
 
+  if (!vcId) return console.error("❌ VC_ID not set in environment variables.");
+  if (!guildId) return console.error("❌ GUILD_ID not set in environment variables.");
+
+  const guild = client.guilds.cache.get(guildId);
   if (!guild) return console.error("❌ Guild not found. Check GUILD_ID.");
 
   const channel = guild.channels.cache.get(vcId);
   if (!channel) return console.error("❌ Voice channel not found. Check VC_ID.");
 
-  console.log("Connecting to voice channel...");
+  console.log("🎧 Connecting to voice channel...");
   await connectToVC(channel);
 
-  // Start auto-play system
+  console.log("🎼 Starting auto-play system...");
   autoPlayLofi();
 
-  console.log("Bot is fully ready.");
+  console.log("✅ Bot is fully ready.");
 });
 
 // ============ INTERACTION HANDLER ============
@@ -72,10 +73,12 @@ client.on("interactionCreate", async interaction => {
   if (!command) return;
 
   try {
-    await command.default.execute(interaction, client, player);
+    await command.execute(interaction, client, player);
   } catch (e) {
-    console.error(e);
-    interaction.reply({ content: "❌ Error executing command.", ephemeral: true });
+    console.error("❌ Error executing command:", e);
+    if (!interaction.replied) {
+      await interaction.reply({ content: "❌ Error executing command.", ephemeral: true });
+    }
   }
 });
 
