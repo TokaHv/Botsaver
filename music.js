@@ -8,6 +8,7 @@ import {
 } from "@discordjs/voice";
 
 import { getYoutubeStream } from "./youtube.js";
+import ffmpegPath from "ffmpeg-static"; // <- FFmpeg static binary
 
 // Queue
 export const queue = [];
@@ -39,8 +40,11 @@ export function connectToVC(channel) {
 export async function play(url) {
   try {
     console.log("▶ Playing:", url);
-    const stream = getYoutubeStream(url);
+
+    // Get YouTube stream with FFmpeg
+    const stream = await getYoutubeStream(url, ffmpegPath);
     const resource = createAudioResource(stream);
+
     player.play(resource);
     currentTrack = url;
   } catch (err) {
