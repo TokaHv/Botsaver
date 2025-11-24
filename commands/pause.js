@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { pauseSong, player } from "../music.js";
 
 export default {
@@ -7,16 +7,35 @@ export default {
     .setDescription("Pauses the current song"),
 
   async execute(interaction) {
+    await interaction.deferReply();
+
     if (player.state.status !== "playing") {
-      return interaction.reply({ content: "❌ Nothing is playing right now.", ephemeral: true });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Nothing is playing")
+        .setDescription("There is no track currently playing.")
+        .setColor("#e74c3c")
+        .setFooter({ text: "Ciel Music Bot" });
+      return interaction.editReply({ embeds: [errorEmbed] });
     }
 
     try {
       pauseSong();
-      await interaction.reply("⏸ Paused the current song.");
+      const embed = new EmbedBuilder()
+        .setTitle("⏸ Paused")
+        .setDescription("The current track has been paused.")
+        .setColor("#8e44ad")
+        .setFooter({ text: "Ciel Music Bot" });
+
+      await interaction.editReply({ embeds: [embed] });
     } catch (err) {
       console.error("Failed to pause song:", err);
-      await interaction.reply({ content: "❌ Could not pause the song.", ephemeral: true });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Error")
+        .setDescription("Could not pause the song.")
+        .setColor("#e74c3c")
+        .setFooter({ text: "Ciel Music Bot" });
+
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   },
 };

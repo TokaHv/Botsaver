@@ -1,31 +1,43 @@
-// YouTube audio helper
+// youtube.linux.js
 import { spawn } from "child_process";
-import ffmpegPath from "ffmpeg-static";
 
-/**
- * Get a readable stream from a YouTube URL
- * @param {string} url - The YouTube link to stream
- * @param {string} ffmpegLocation - path to FFmpeg binary
- * @returns {ReadableStream} - Audio stream for Discord
- */
-export function getYoutubeStream(url, ffmpegLocation = ffmpegPath) {
+// System commands (Linux)
+const FFMPEG_PATH = "ffmpeg";
+const YTDLP_PATH = "yt-dlp";
+
+export function getYoutubeStream(url) {
   if (!url) throw new Error("You must provide a YouTube URL");
 
-  // Spawn yt-dlp process to get audio
-  const process = spawn("yt-dlp", [
-    "-f", "bestaudio",
-    "-o", "-", // output to stdout
-    url
-  ], { stdio: ["ignore", "pipe", "ignore"] });
+  console.log("📥 Fetching YouTube stream (Linux):", url);
 
-  // Pipe through FFmpeg to decode audio
-  const ffmpegProcess = spawn(ffmpegLocation, [
+  const ytdlp = spawn(YTDLP_PATH, ["-f", "bestaudio", "-o", "-", url], {
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  const ffmpeg = spawn(FFMPEG_PATH, [
+    "-hide_banner",
+    "-loglevel", "error",
     "-i", "pipe:0",
-    "-f", "wav", // or pcm_s16le if you want raw PCM
+    "-f", "s16le",
+    "-ar", "48000",
+    "-ac", "2",
     "pipe:1"
-  ], { stdio: ["pipe", "pipe", "ignore"] });
+  ], { stdio: ["pipe", "pipe", "pipe"] });
 
-  process.stdout.pipe(ffmpegProcess.stdin);
+  // Prevent crash on skip
+  ffmpeg.stdin.on("error", err => {
+    if (err.code !== "EPIPE") console.error("❗ffmpeg stdin error:", err);
+  });
 
-  return ffmpegProcess.stdout;
+  // Connect processes
+  ytdlp.stdout.pipe(ffmpeg.stdin);
+
+  // Logging
+  ytdlp.stderr.on("data", data => console.error("yt-dlp:", data.toString()));
+  ffmpeg.stderr.on("data", data => console.error("ffmpeg:", data.toString()));
+
+  // Cleanup
+  ffmpeg.on("close", () => ytdlp.kill("SIGKILL"));
+
+  return ffmpeg.stdout;
 }

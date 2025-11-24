@@ -1,86 +1,49 @@
-// ===========================
-//  Discord 24/7 Music Bot
-// ===========================
-
-// Load environment variables first
-import 'dotenv/config'; // ESM style; ensures process.env.TOKEN, VC_ID, etc. are available
-
-import { Client, GatewayIntentBits, Collection } from "discord.js";
+import { Client, GatewayIntentBits } from "discord.js";
+import dotenv from "dotenv";
+import { player, connectToVC, ensureConnection } from "./music.js";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 
-// Start keepalive server for Render
-import "./keepalive/server.js";
+dotenv.config();
 
-import { player, connectToVC, autoPlayLofi } from "./music.js";
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// ============ BOT CLIENT ===============
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMessages
-  ]
-});
-
-client.commands = new Collection();
-
-// ============ COMMAND LOADER ============
-const commandsPath = path.join(__dirname, "commands");
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith(".js"));
+// Load commands dynamically
+client.commands = new Map();
+const commandsPath = path.join(process.cwd(), "commands");
+const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith(".js"));
 
 for (const file of commandFiles) {
   const { default: command } = await import(`./commands/${file}`);
   client.commands.set(command.data.name, command);
 }
 
-console.log(`✅ Loaded ${client.commands.size} commands.`);
-
-// ============ BOT READY EVENT ============
+// ================= BOT READY ===================
 client.once("ready", async () => {
-  console.log(`Logged in as ${client.user.tag}`);
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  
+  // Auto-join VC if needed
+  const guild = client.guilds.cache.get(process.env.GUILD_ID);
+  if (guild) {
+    ensureConnection(guild);
+  }
 
-  const vcId = process.env.VC_ID;
-  const guildId = process.env.GUILD_ID;
-
-  if (!vcId) return console.error("❌ VC_ID not set in environment variables.");
-  if (!guildId) return console.error("❌ GUILD_ID not set in environment variables.");
-
-  const guild = client.guilds.cache.get(guildId);
-  if (!guild) return console.error("❌ Guild not found. Check GUILD_ID.");
-
-  const channel = guild.channels.cache.get(vcId);
-  if (!channel) return console.error("❌ Voice channel not found. Check VC_ID.");
-
-  console.log("🎧 Connecting to voice channel...");
-  await connectToVC(channel);
-
-  console.log("🎼 Starting auto-play system...");
-  autoPlayLofi();
-
-  console.log("✅ Bot is fully ready.");
+  console.log("🎧 Bot is ready and listening for commands");
 });
 
-// ============ INTERACTION HANDLER ============
-client.on("interactionCreate", async interaction => {
+// ================= INTERACTIONS =================
+client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
   try {
-    await command.execute(interaction, client, player);
-  } catch (e) {
-    console.error("❌ Error executing command:", e);
-    if (!interaction.replied) {
-      await interaction.reply({ content: "❌ Error executing command.", ephemeral: true });
-    }
+    await command.execute(interaction);
+  } catch (err) {
+    console.error("Error executing command:", err);
+    await interaction.reply({ content: "❌ There was an error while executing this command.", ephemeral: true });
   }
 });
 
-// ============ LOGIN BOT ============
 client.login(process.env.TOKEN);

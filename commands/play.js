@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { addToQueue, player } from "../music.js";
 
 export default {
@@ -15,18 +15,34 @@ export default {
   async execute(interaction) {
     const url = interaction.options.getString("url");
 
-    // Simple validation
     if (!url.startsWith("http")) {
-      return interaction.reply({ content: "❌ Please provide a valid URL.", ephemeral: true });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Invalid URL")
+        .setDescription("Please provide a valid YouTube link.")
+        .setColor("#e74c3c");
+      return interaction.reply({ embeds: [errorEmbed], ephemeral: true });
     }
+
+    await interaction.deferReply();
 
     try {
       addToQueue(url);
-      const msg = player.state.status !== "playing" ? "▶ Now playing:" : "➕ Added to queue:";
-      await interaction.reply(`${msg} ${url}`);
+
+      const isPlaying = player.state.status === "playing";
+      const embed = new EmbedBuilder()
+        .setTitle(isPlaying ? "➕ Added to Queue" : "▶ Now Playing")
+        .setDescription(`[Click here to open the track](${url})`)
+        .setColor("#8e44ad")
+        .setFooter({ text: "Ciel Music Bot" });
+
+      await interaction.editReply({ embeds: [embed] });
     } catch (err) {
       console.error("Failed to add to queue:", err);
-      await interaction.reply({ content: "❌ Could not play the link.", ephemeral: true });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Error")
+        .setDescription("Could not play the track.")
+        .setColor("#e74c3c");
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   },
 };

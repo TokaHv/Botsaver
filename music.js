@@ -5,30 +5,30 @@ import {
   NoSubscriberBehavior,
   AudioPlayerStatus,
   getVoiceConnection,
+  StreamType,
 } from "@discordjs/voice";
 
-import { getYoutubeStream } from "./youtube.js";
-import ffmpegPath from "ffmpeg-static"; // <- FFmpeg static binary
+import { getYoutubeStream } from "./youtube.linux.js";
 
-// Queue
 export const queue = [];
 export let currentTrack = null;
+export let isPlayingLofi = false;
 
-// LOFI URL (can be updated via command)
-export let lofiURL = process.env.LOFI_URL || "";
+// LOFI fallback
+export let lofiURL =
+  process.env.LOFI_URL || "https://www.youtube.com/watch?v=Dx5qFachd3A";
 
-// Create player
 export const player = createAudioPlayer({
   behaviors: { noSubscriber: NoSubscriberBehavior.Play },
 });
 
-// =============== CONNECT TO VC =================
+// CONNECT TO VC
 export function connectToVC(channel) {
   const connection = joinVoiceChannel({
     channelId: channel.id,
     guildId: channel.guild.id,
     adapterCreator: channel.guild.voiceAdapterCreator,
-    selfDeaf: true,
+    selfDeaf: false,
   });
 
   connection.subscribe(player);
@@ -36,72 +36,87 @@ export function connectToVC(channel) {
   return connection;
 }
 
-// =============== PLAY ==========================
-export async function play(url) {
-  try {
-    console.log("▶ Playing:", url);
+// PLAY
+export function play(url, lofi = false) {
+  console.log("▶ Playing:", url);
 
-    // Get YouTube stream with FFmpeg
-    const stream = await getYoutubeStream(url, ffmpegPath);
-    const resource = createAudioResource(stream);
+  try {
+    const stream = getYoutubeStream(url);
+
+    const resource = createAudioResource(stream, {
+      inputType: StreamType.Raw,
+      inlineVolume: false,
+    });
 
     player.play(resource);
-    currentTrack = url;
+
+    isPlayingLofi = lofi;
+    currentTrack = lofi ? null : url;
   } catch (err) {
-    console.error("❌ Failed to play:", err);
+    console.error("❌ Failed to play:", err.message);
     playNext();
   }
 }
 
-// =============== QUEUE HANDLER =================
-export async function playNext() {
-  if (queue.length === 0) return startLofi();
-  const next = queue.shift();
-  await play(next);
+// PLAY NEXT
+export function playNext() {
+  if (queue.length > 0) {
+    const next = queue.shift();
+    play(next, false);
+    return;
+  }
+
+  console.log("🎼 Queue empty → playing LOFI fallback:", lofiURL);
+  play(lofiURL, true);
 }
 
-// =============== LOFI ==========================
-export function startLofi() {
-  if (!lofiURL) return console.error("❌ LOFI_URL missing.");
-  console.log("🎼 Playing fallback LOFI:", lofiURL);
-  return play(lofiURL);
-}
-
-export function setLofi(url) {
-  lofiURL = url;
-  console.log("🎧 LOFI URL updated:", url);
-}
-
-export function autoPlayLofi() {
-  player.on(AudioPlayerStatus.Idle, () => {
-    console.log("Player idle → next track or LOFI");
-    playNext();
-  });
-}
-
-// =============== PUBLIC FUNCTIONS ===============
-export async function addToQueue(url) {
+// ADD TO QUEUE
+export function addToQueue(url) {
   queue.push(url);
   console.log("➕ Added to queue:", url);
-  if (player.state.status !== AudioPlayerStatus.Playing) playNext();
+
+  if (player.state.status !== AudioPlayerStatus.Playing || isPlayingLofi) {
+    playNext();
+  }
 }
 
+// SKIP (FIXED)
 export function skipSong() {
+  if (!currentTrack && queue.length === 0) {
+    console.log("❌ Nothing to skip.");
+    return;
+  }
+
   console.log("⏭ Skipping...");
-  player.stop(true);
+
+  try {
+    player.stop(true); // triggers Idle → playNext()
+  } catch (err) {
+    console.error("❌ Skip error:", err);
+    playNext();
+  }
 }
 
 export function pauseSong() {
   console.log("⏸ Paused");
-  return player.pause();
+  player.pause();
 }
 
 export function resumeSong() {
   console.log("▶ Resumed");
-  return player.unpause();
+  player.unpause();
 }
 
-// =============== RECONNECT =====================
+export function clearQueue() {
+  queue.length = 0;
+  console.log("🗑 Queue cleared");
+}
+
+export function setLofi(url) {
+  lofiURL = url;
+  console.log("🎧 LOFI updated:", url);
+}
+
 export function ensureConnection(guild) {
   let connection = getVoiceConnection(guild.id);
   if (!connection) {
@@ -109,3 +124,13 @@ export function ensureConnection(guild) {
     if (channel) connectToVC(channel);
   }
 }
+
+// AUTOPLAY
+player.on(AudioPlayerStatus.Idle, () => {
+  playNext();
+});
+
+player.on("error", (err) => {
+  console.error("❌ Player error:", err.message);
+  playNext();
+});

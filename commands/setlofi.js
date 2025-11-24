@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { setLofi } from "../music.js";
 
 export default {
@@ -13,24 +13,48 @@ export default {
     ),
 
   async execute(interaction) {
+    // Defer reply
+    await interaction.deferReply({ ephemeral: true });
+
     // Only the bot owner can use this
     if (interaction.user.id !== process.env.OWNER_ID) {
-      return interaction.reply({ content: "❌ Only the bot owner can use this command.", ephemeral: true });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Access Denied")
+        .setDescription("Only the bot owner can use this command.")
+        .setColor("#e74c3c")
+        .setFooter({ text: "Ciel Music Bot" });
+      return interaction.editReply({ embeds: [errorEmbed] });
     }
 
     const url = interaction.options.getString("url");
 
     if (!url.startsWith("http")) {
-      return interaction.reply({ content: "❌ Please provide a valid URL.", ephemeral: true });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Invalid URL")
+        .setDescription("Please provide a valid YouTube URL.")
+        .setColor("#e74c3c")
+        .setFooter({ text: "Ciel Music Bot" });
+      return interaction.editReply({ embeds: [errorEmbed] });
     }
 
     try {
       setLofi(url);
-      await interaction.reply(`✅ LOFI URL updated to: ${url}`);
+      const embed = new EmbedBuilder()
+        .setTitle("✅ LOFI Updated")
+        .setDescription(`LOFI URL has been updated to:\n${url}`)
+        .setColor("#8e44ad")
+        .setFooter({ text: "Ciel Music Bot" });
+
+      await interaction.editReply({ embeds: [embed] });
     } catch (err) {
       console.error("Failed to set LOFI URL:", err);
-      await interaction.reply({ content: "❌ Could not update LOFI URL.", ephemeral: true });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Error")
+        .setDescription("Could not update LOFI URL.")
+        .setColor("#e74c3c")
+        .setFooter({ text: "Ciel Music Bot" });
+
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   },
 };
-// Set Lofi command placeholder

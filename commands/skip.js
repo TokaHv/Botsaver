@@ -1,23 +1,32 @@
-import { SlashCommandBuilder } from "discord.js";
-import { skipSong, player } from "../music.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { skipSong } from "../music.js";
 
 export default {
   data: new SlashCommandBuilder()
     .setName("skip")
-    .setDescription("Skips the currently playing song"),
+    .setDescription("Skips the current track"),
 
   async execute(interaction) {
-    if (player.state.status !== "playing") {
-      return interaction.reply({ content: "❌ Nothing is playing right now.", ephemeral: true });
-    }
+    await interaction.deferReply();
 
     try {
       skipSong();
-      await interaction.reply("⏭ Skipped the current song.");
+
+      const embed = new EmbedBuilder()
+        .setTitle("⏭ Skipped")
+        .setDescription("The current track has been skipped.")
+        .setColor("#9b59b6");
+
+      await interaction.editReply({ embeds: [embed] });
     } catch (err) {
-      console.error("Failed to skip song:", err);
-      await interaction.reply({ content: "❌ Could not skip the song.", ephemeral: true });
+      console.error("Skip Error:", err);
+
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Error")
+        .setDescription("Could not skip the track.")
+        .setColor("#e74c3c");
+
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
-  },
+  }
 };
-// Skip command placeholder

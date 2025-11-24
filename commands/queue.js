@@ -1,5 +1,5 @@
-import { SlashCommandBuilder } from "discord.js";
-import { queue, currentTrack } from "../music.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { queue, currentTrack, isPlayingLofi } from "../music.js";
 
 export default {
   data: new SlashCommandBuilder()
@@ -7,28 +7,47 @@ export default {
     .setDescription("Displays the current music queue"),
 
   async execute(interaction) {
+    await interaction.deferReply();
+
     try {
-      if (!currentTrack && queue.length === 0) {
-        return interaction.reply({ content: "❌ The queue is empty.", ephemeral: true });
+      if (!currentTrack && queue.length === 0 && !isPlayingLofi) {
+        const emptyEmbed = new EmbedBuilder()
+          .setTitle("❌ Queue Empty")
+          .setDescription("There are no songs in the queue right now.")
+          .setColor("#e74c3c")
+          .setFooter({ text: "Ciel Music Bot" });
+        return interaction.editReply({ embeds: [emptyEmbed] });
       }
 
-      let message = "";
+      const embed = new EmbedBuilder()
+        .setTitle("🎵 Current Queue")
+        .setColor("#8e44ad")
+        .setFooter({ text: "Ciel Music Bot" });
+
       if (currentTrack) {
-        message += `🎶 **Now playing:** ${currentTrack}\n`;
+        embed.addFields({ name: "Now Playing", value: currentTrack });
+      } else if (isPlayingLofi) {
+        embed.addFields({ name: "Now Playing", value: "LOFI Stream" });
       }
 
       if (queue.length > 0) {
-        message += `📃 **Up next:**\n`;
-        queue.forEach((track, index) => {
-          message += `${index + 1}. ${track}\n`;
-        });
+        const upNext = queue
+          .map((track, i) => `${i + 1}. ${track}`)
+          .join("\n")
+          .slice(0, 1024);
+
+        embed.addFields({ name: "Up Next", value: upNext });
       }
 
-      await interaction.reply(message);
+      await interaction.editReply({ embeds: [embed] });
     } catch (err) {
       console.error("Failed to show queue:", err);
-      await interaction.reply({ content: "❌ Could not retrieve the queue.", ephemeral: true });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Error")
+        .setDescription("Could not retrieve the queue.")
+        .setColor("#e74c3c")
+        .setFooter({ text: "Ciel Music Bot" });
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   },
 };
-// Queue command placeholder
