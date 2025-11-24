@@ -47,3 +47,14 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+
+// Add at the bottom of index.js
+import http from "http";
+
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Bot is running\n");
+}).listen(port, () => {
+  console.log(`✅ HTTP server listening on port ${port}`);
+});
