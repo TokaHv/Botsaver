@@ -16,7 +16,7 @@ export let isPlayingLofi = false;
 
 // LOFI fallback
 export let lofiURL =
-  process.env.LOFI_URL || "https://www.youtube.com/watch?v=Dx5qFachd3A";
+  process.env.LOFI_URL || "https://www.youtube.com/watch?v=aiVGgt8fztA";
 
 export const player = createAudioPlayer({
   behaviors: { noSubscriber: NoSubscriberBehavior.Play },
